@@ -5,13 +5,18 @@
     <title>Express + Ollama Multi-Agent</title>
     <style>
         body { font-family: system-ui; text-align: center; background: #f0f2f5; padding-top: 50px; }
-        .container { background: white; max-width: 500px; margin: auto; padding: 30px; border-radius: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.1); }
+        .container { background: white; max-width: 700px; margin: auto; padding: 30px; border-radius: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.1); }
         .slot-machine { display: flex; justify-content: space-around; margin: 30px 0; }
         .card { border: 2px solid #eee; padding: 15px; border-radius: 12px; width: 100px; }
         .choice { font-size: 24px; font-weight: bold; color: #ff5722; margin-top: 10px; }
         #msg { padding: 15px; background: #fff3e0; border-radius: 8px; font-weight: bold; margin-bottom: 20px; min-height: 24px; }
         button { background: #673ab7; color: white; border: none; padding: 12px 40px; border-radius: 30px; font-size: 18px; cursor: pointer; }
         button:disabled { background: #ccc; }
+        .thinking-process { margin-top: 30px; text-align: left; background: #f5f5f5; padding: 20px; border-radius: 8px; }
+        .agent-detail { margin-bottom: 15px; padding: 10px; background: white; border-radius: 6px; border-left: 4px solid #673ab7; }
+        .agent-detail h4 { margin: 0 0 8px 0; color: #673ab7; }
+        .raw-response { font-family: monospace; background: #fff3e0; padding: 8px; border-radius: 4px; margin: 5px 0; word-break: break-all; }
+        .parse-info { color: #666; font-size: 14px; margin-top: 5px; }
     </style>
 </head>
 <body>
@@ -28,6 +33,13 @@
 
     <div id="msg">点击下方按钮开始一轮博弈</div>
     <button id="go">开始出招</button>
+
+    <div class="thinking-process" id="thinking" style="display: none;">
+        <h3>🤔 AI 思考过程</h3>
+        <div id="detail-a" class="agent-detail"></div>
+        <div id="detail-b" class="agent-detail"></div>
+        <div id="detail-c" class="agent-detail"></div>
+    </div>
 </div>
 
 <script>
@@ -37,6 +49,7 @@
     btn.onclick = async () => {
         btn.disabled = true;
         msg.innerText = "后端正在调遣本地模型...";
+        document.getElementById('thinking').style.display = 'none';
 
         try {
             const res = await fetch('/api/play');
@@ -47,12 +60,31 @@
             document.getElementById('out-c').innerText = data.c;
 
             msg.innerText = judge(data.a, data.b, data.c);
+
+            // 显示AI思考过程
+            if (data.details) {
+                document.getElementById('thinking').style.display = 'block';
+
+                displayAgentDetail('detail-a', 'Agent A', data.details.agentA);
+                displayAgentDetail('detail-b', 'Agent B', data.details.agentB);
+                displayAgentDetail('detail-c', 'Agent C', data.details.agentC);
+            }
         } catch (e) {
             msg.innerText = "请求失败，请检查后端服务";
         } finally {
             btn.disabled = false;
         }
     };
+
+    function displayAgentDetail(elementId, agentName, detail) {
+        const elem = document.getElementById(elementId);
+        elem.innerHTML = `
+            <h4>${agentName}</h4>
+            <div><strong>最终选择:</strong> ${detail.choice}</div>
+            <div class="raw-response"><strong>原始回复:</strong> ${detail.rawResponse}</div>
+            <div class="parse-info"><strong>解析方式:</strong> ${detail.parseMethod}</div>
+        `;
+    }
 
     function judge(a, b, c) {
         if (a === b && b === c) return "平局：大家都出了 " + a;
